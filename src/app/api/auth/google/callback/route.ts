@@ -43,6 +43,6 @@ export async function GET(request: NextRequest) {
       <textarea readonly style="width:100%;height:100px;font-family:monospace;font-size:14px;">${data.refresh_token}</textarea>
       <p>Once you've sent it, you can close this tab.</p>
     </body></html>`,
-    { headers: { "Content-Type": "text/html" } }
+    { headers: { "Content-Type": "text/html; charset=utf-8" } }
   );
 }
