@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { creators, weeks, deliveries, syncRuns } from "@/db/schema";
-import { getCurrentWeekBounds } from "@/lib/week";
+import { creators, deliveries, syncRuns } from "@/db/schema";
+import { getOrCreateCurrentWeek } from "@/lib/current-week";
 import { getDriveAccessToken, listVideosInFolder } from "@/lib/google-drive";
 
 const MIN_VIDEO_BYTES = 5 * 1024 * 1024;
@@ -19,28 +19,6 @@ export type SyncResult = {
   errorCount: number;
   errors: CreatorSyncError[];
 };
-
-/** Finds this week's row, creating it on first sync of a new week. */
-async function getOrCreateCurrentWeek() {
-  const bounds = getCurrentWeekBounds();
-
-  const [existing] = await db
-    .select()
-    .from(weeks)
-    .where(eq(weeks.isoWeek, bounds.isoWeek));
-  if (existing) return existing;
-
-  const [created] = await db
-    .insert(weeks)
-    .values({ isoWeek: bounds.isoWeek, startsAt: bounds.startsAt, dueAt: bounds.dueAt })
-    .onConflictDoNothing({ target: weeks.isoWeek })
-    .returning();
-  if (created) return created;
-
-  // Lost a race with another concurrent sync creating the same week — just read it back.
-  const [row] = await db.select().from(weeks).where(eq(weeks.isoWeek, bounds.isoWeek));
-  return row;
-}
 
 /**
  * Runs one full sync pass across every active creator's Drive folder.
