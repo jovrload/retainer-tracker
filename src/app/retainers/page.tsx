@@ -5,7 +5,7 @@ import { getOrCreateCurrentWeek } from "@/lib/current-week";
 import { formatRelativeTime, formatLondonTime } from "@/lib/format";
 import { syncNow } from "./actions";
 import { WeekSelect } from "./WeekSelect";
-import { BriefTickBox } from "./BriefTickBox";
+import { BriefDots } from "./BriefDots";
 
 type Status = "error" | "red" | "amber" | "green";
 
@@ -81,7 +81,9 @@ export default async function RetainersPage({
     });
     const hasDuplicate = [...sizeCounts.values()].some((count) => count > 1);
 
-    const briefsTicked = weekTicks.some((t) => t.creatorId === creator.id);
+    const briefsTicked = weekTicks
+      .filter((t) => t.creatorId === creator.id)
+      .map((t) => t.briefNo);
     const hasSyncError = erroredCreatorIds.has(creator.id);
 
     let status: Status;
@@ -176,8 +178,18 @@ export default async function RetainersPage({
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/50">
             <tr>
               <th className="px-4 py-3 font-medium">Creator</th>
-              <th className="px-4 py-3 font-medium">Briefs sent</th>
-              <th className="px-4 py-3 font-medium">Delivered</th>
+              <th className="px-4 py-3 font-medium">
+                Briefs sent
+                <span className="ml-1.5 font-normal normal-case text-neutral-400">
+                  · tick by hand
+                </span>
+              </th>
+              <th className="px-4 py-3 font-medium">
+                Delivered
+                <span className="ml-1.5 font-normal normal-case text-neutral-400">
+                  · auto from Drive
+                </span>
+              </th>
               <th className="px-4 py-3 font-medium">Last upload</th>
               <th className="px-4 py-3 font-medium">Status</th>
             </tr>
@@ -193,7 +205,7 @@ export default async function RetainersPage({
                   <div className="text-xs text-neutral-500">@{row.creator.handle}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <BriefTickBox
+                  <BriefDots
                     weekId={selectedWeek.id}
                     creatorId={row.creator.id}
                     initialTicked={row.briefsTicked}
@@ -239,10 +251,18 @@ export default async function RetainersPage({
         </table>
       </div>
 
-      <p className="mt-4 text-xs text-neutral-500">
-        Delivered counts video files of at least 5MB that appeared in each creator&apos;s Drive
-        folder during this week. Tick boxes are manual — nothing is sent automatically.
-      </p>
+      <div className="mt-4 space-y-1 text-xs text-neutral-500">
+        <p>
+          <span className="font-medium text-neutral-600 dark:text-neutral-400">Briefs sent</span> is
+          yours to tick — briefs go out over WhatsApp, which this system can&apos;t see, so nothing
+          here is automated and nothing is ever sent to a creator.
+        </p>
+        <p>
+          <span className="font-medium text-neutral-600 dark:text-neutral-400">Delivered</span>{" "}
+          updates itself every 15 minutes: it counts video files of at least 5MB that landed in each
+          creator&apos;s Drive folder during the selected week.
+        </p>
+      </div>
     </main>
   );
 }
@@ -273,17 +293,22 @@ function StatCard({
   );
 }
 
-/** Three dots showing progress toward the 3-video target at a glance. */
+/**
+ * Three dots showing progress toward the 3-video target at a glance.
+ * Not interactive — this reflects real Drive uploads, so it fills in on
+ * its own. Deliberately drawn as solid dots (no ring) to distinguish it
+ * from the clickable, hand-ticked brief dots.
+ */
 function DeliveredDots({ delivered }: { delivered: number }) {
   return (
-    <span className="flex gap-1" aria-hidden="true">
+    <span className="flex gap-1.5" aria-hidden="true">
       {[1, 2, 3].map((n) => (
         <span
           key={n}
-          className={`h-1.5 w-1.5 rounded-full ${
+          className={`h-4 w-4 rounded-full ${
             delivered >= n
               ? "bg-green-500 dark:bg-green-400"
-              : "bg-neutral-300 dark:bg-neutral-700"
+              : "bg-neutral-200 dark:bg-neutral-800"
           }`}
         />
       ))}

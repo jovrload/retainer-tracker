@@ -53,9 +53,10 @@ export const briefs = pgTable("briefs", {
 });
 
 /**
- * Manual "I sent this creator their briefs" tick, set by hand on the
- * dashboard. Deliberately not driven by any automation — one row exists
- * only if the box is ticked; unticking deletes it.
+ * Manual "I sent this creator brief N" tick, set by hand on the dashboard.
+ * Deliberately not driven by any automation — briefs go out over WhatsApp,
+ * which this system can't read, so the tick is the operator's own record.
+ * One row exists per ticked dot; unticking deletes it.
  */
 export const briefTicks = pgTable(
   "brief_ticks",
@@ -67,11 +68,18 @@ export const briefTicks = pgTable(
     creatorId: integer("creator_id")
       .notNull()
       .references(() => creators.id),
+    briefNo: integer("brief_no").notNull(), // 1 | 2 | 3
     tickedAt: timestamp("ticked_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("brief_ticks_week_creator_unique").on(table.weekId, table.creatorId)],
+  (table) => [
+    uniqueIndex("brief_ticks_week_creator_brief_unique").on(
+      table.weekId,
+      table.creatorId,
+      table.briefNo,
+    ),
+  ],
 );
 
 /**
