@@ -53,6 +53,28 @@ export const briefs = pgTable("briefs", {
 });
 
 /**
+ * Manual "I sent this creator their briefs" tick, set by hand on the
+ * dashboard. Deliberately not driven by any automation — one row exists
+ * only if the box is ticked; unticking deletes it.
+ */
+export const briefTicks = pgTable(
+  "brief_ticks",
+  {
+    id: serial("id").primaryKey(),
+    weekId: integer("week_id")
+      .notNull()
+      .references(() => weeks.id),
+    creatorId: integer("creator_id")
+      .notNull()
+      .references(() => creators.id),
+    tickedAt: timestamp("ticked_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("brief_ticks_week_creator_unique").on(table.weekId, table.creatorId)],
+);
+
+/**
  * A video file found in a creator's Drive folder, matched back to a week.
  * driveFileId is UNIQUE so a future sync job can safely upsert
  * (ON CONFLICT DO UPDATE) on every re-run without creating duplicates.

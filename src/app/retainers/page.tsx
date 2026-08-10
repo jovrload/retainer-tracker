@@ -1,18 +1,26 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { creators, weeks, deliveries, briefs, syncRuns } from "@/db/schema";
+import { creators, weeks, deliveries, briefTicks, syncRuns } from "@/db/schema";
 import { getOrCreateCurrentWeek } from "@/lib/current-week";
 import { formatRelativeTime, formatLondonTime } from "@/lib/format";
-import { syncNow, sendBriefsForWeek } from "./actions";
+import { syncNow } from "./actions";
 import { WeekSelect } from "./WeekSelect";
+import { BriefTickBox } from "./BriefTickBox";
 
 type Status = "error" | "red" | "amber" | "green";
 
 const STATUS_STYLES: Record<Status, string> = {
   error: "bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200",
-  red: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  green: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  red: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+  amber: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  green: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
+};
+
+const STATUS_LABELS: Record<Status, string> = {
+  error: "Sync error",
+  red: "Outstanding",
+  amber: "In progress",
+  green: "Complete",
 };
 
 const STATUS_RANK: Record<Status, number> = { error: 0, red: 1, amber: 2, green: 3 };
@@ -31,20 +39,15 @@ export default async function RetainersPage({
     (params.week && allWeeks.find((w) => w.isoWeek === params.week)) || currentWeek;
   const isCurrentWeek = selectedWeek.isoWeek === currentWeek.isoWeek;
 
-  const activeCreators = await db
-    .select()
-    .from(creators)
-    .where(eq(creators.active, true));
-
+  const activeCreators = await db.select().from(creators).where(eq(creators.active, true));
   const weekDeliveries = await db
     .select()
     .from(deliveries)
     .where(eq(deliveries.weekId, selectedWeek.id));
-
-  const weekBriefs = await db
+  const weekTicks = await db
     .select()
-    .from(briefs)
-    .where(eq(briefs.weekId, selectedWeek.id));
+    .from(briefTicks)
+    .where(eq(briefTicks.weekId, selectedWeek.id));
 
   const [latestSyncRun] = await db
     .select()
@@ -78,7 +81,7 @@ export default async function RetainersPage({
     });
     const hasDuplicate = [...sizeCounts.values()].some((count) => count > 1);
 
-    const briefsSent = weekBriefs.filter((b) => b.creatorId === creator.id).length;
+    const briefsTicked = weekTicks.some((t) => t.creatorId === creator.id);
     const hasSyncError = erroredCreatorIds.has(creator.id);
 
     let status: Status;
@@ -90,7 +93,7 @@ export default async function RetainersPage({
     return {
       creator,
       delivered,
-      briefsSent,
+      briefsTicked,
       lastUpload,
       anyLate,
       hasDuplicate,
@@ -105,76 +108,72 @@ export default async function RetainersPage({
     return a.creator.name.localeCompare(b.creator.name);
   });
 
-  const briefsAlreadySentThisWeek = weekBriefs.length > 0;
+  const completeCount = rows.filter((r) => r.status === "green").length;
+  const outstandingCount = rows.filter((r) => r.status === "red").length;
+  const inProgressCount = rows.filter((r) => r.status === "amber").length;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Retainer delivery tracker</h1>
-          <p className="text-sm text-neutral-500">
-            Drive uploads only — this shows what&apos;s been filmed, not what&apos;s gone live on TikTok.
+          <h1 className="text-2xl font-semibold tracking-tight">Retainer delivery tracker</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Drive uploads only — what&apos;s been filmed, not what&apos;s gone live on TikTok.
           </p>
         </div>
         <WeekSelect
-          weeks={allWeeks.map((w) => ({ isoWeek: w.isoWeek, isCurrent: w.isoWeek === currentWeek.isoWeek }))}
+          weeks={allWeeks.map((w) => ({
+            isoWeek: w.isoWeek,
+            isCurrent: w.isoWeek === currentWeek.isoWeek,
+          }))}
           selected={selectedWeek.isoWeek}
         />
+      </header>
+
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Creators" value={rows.length} />
+        <StatCard label="Complete" value={completeCount} tone="green" />
+        <StatCard label="In progress" value={inProgressCount} tone="amber" />
+        <StatCard label="Outstanding" value={outstandingCount} tone="red" />
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
         <div className="text-neutral-600 dark:text-neutral-400">
+          <span className="font-medium text-neutral-900 dark:text-neutral-100">
+            {selectedWeek.isoWeek}
+          </span>
+          <span className="mx-2 text-neutral-300 dark:text-neutral-700">·</span>
+          due {formatLondonTime(selectedWeek.dueAt)}
+          <span className="mx-2 text-neutral-300 dark:text-neutral-700">·</span>
           {latestSyncRun ? (
             <>
-              Last synced {formatRelativeTime(latestSyncRun.finishedAt)}
+              synced {formatRelativeTime(latestSyncRun.finishedAt)}
               {latestSyncRun.errorCount > 0 && (
                 <span className="ml-2 text-red-600 dark:text-red-400">
-                  ({latestSyncRun.errorCount} error{latestSyncRun.errorCount === 1 ? "" : "s"} last run)
+                  ({latestSyncRun.errorCount} error
+                  {latestSyncRun.errorCount === 1 ? "" : "s"})
                 </span>
               )}
             </>
           ) : (
-            "Never synced yet"
+            "never synced"
           )}
         </div>
-        <div className="flex gap-2">
-          {isCurrentWeek && !briefsAlreadySentThisWeek && (
-            <form action={sendBriefsForWeek.bind(null, selectedWeek.id)}>
-              <button
-                type="submit"
-                className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-              >
-                Send briefs for {selectedWeek.isoWeek}
-              </button>
-            </form>
-          )}
-          {isCurrentWeek && briefsAlreadySentThisWeek && (
-            <span className="px-3 py-1.5 text-sm text-neutral-500">
-              Briefs sent for {selectedWeek.isoWeek}
-            </span>
-          )}
-          {isCurrentWeek && (
-            <form action={syncNow}>
-              <button
-                type="submit"
-                className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-              >
-                Sync now
-              </button>
-            </form>
-          )}
-        </div>
+        {isCurrentWeek && (
+          <form action={syncNow}>
+            <button
+              type="submit"
+              className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+            >
+              Sync now
+            </button>
+          </form>
+        )}
       </div>
 
-      {!isCurrentWeek && (
-        <p className="mb-4 text-sm text-neutral-500">
-          Viewing {selectedWeek.isoWeek} — a past week, read-only.
-        </p>
-      )}
-
-      <div className="overflow-x-auto rounded border border-neutral-200 dark:border-neutral-800">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/50">
             <tr>
               <th className="px-4 py-3 font-medium">Creator</th>
               <th className="px-4 py-3 font-medium">Briefs sent</th>
@@ -184,37 +183,54 @@ export default async function RetainersPage({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ creator, delivered, briefsSent, lastUpload, anyLate, hasDuplicate, hasSyncError, status }) => (
-              <tr key={creator.id} className="border-b border-neutral-100 last:border-0 dark:border-neutral-900">
+            {rows.map((row) => (
+              <tr
+                key={row.creator.id}
+                className="border-b border-neutral-100 transition-colors last:border-0 hover:bg-neutral-50 dark:border-neutral-900 dark:hover:bg-neutral-900/40"
+              >
                 <td className="px-4 py-3">
-                  <div className="font-medium">{creator.name}</div>
-                  <div className="text-neutral-500">@{creator.handle}</div>
-                </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
-                  {briefsSent > 0 ? `${briefsSent}` : "not sent"}
+                  <div className="font-medium">{row.creator.name}</div>
+                  <div className="text-xs text-neutral-500">@{row.creator.handle}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-base font-semibold">{delivered}/3</span>
-                  {hasDuplicate && (
+                  <BriefTickBox
+                    weekId={selectedWeek.id}
+                    creatorId={row.creator.id}
+                    initialTicked={row.briefsTicked}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-semibold tabular-nums">
+                      {row.delivered}/3
+                    </span>
+                    <DeliveredDots delivered={row.delivered} />
+                  </div>
+                  {row.hasDuplicate && (
                     <span
-                      className="ml-2 rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
-                      title="Two files this week share an identical size — possible duplicate export"
+                      className="mt-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                      title="Two files this week share an identical byte size — possible duplicate export"
                     >
                       possible duplicate
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400" title={formatLondonTime(lastUpload)}>
-                  {formatRelativeTime(lastUpload)}
-                  {anyLate && (
-                    <span className="ml-2 rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
+                <td
+                  className="px-4 py-3 text-neutral-600 dark:text-neutral-400"
+                  title={formatLondonTime(row.lastUpload)}
+                >
+                  {formatRelativeTime(row.lastUpload)}
+                  {row.anyLate && (
+                    <span className="ml-2 rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700 dark:bg-orange-950 dark:text-orange-300">
                       late
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`rounded px-2 py-1 text-xs font-medium ${STATUS_STYLES[status]}`}>
-                    {hasSyncError ? "Sync error" : status === "red" ? "Outstanding" : status === "amber" ? "In progress" : "Complete"}
+                  <span
+                    className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[row.status]}`}
+                  >
+                    {STATUS_LABELS[row.status]}
                   </span>
                 </td>
               </tr>
@@ -222,6 +238,55 @@ export default async function RetainersPage({
           </tbody>
         </table>
       </div>
+
+      <p className="mt-4 text-xs text-neutral-500">
+        Delivered counts video files of at least 5MB that appeared in each creator&apos;s Drive
+        folder during this week. Tick boxes are manual — nothing is sent automatically.
+      </p>
     </main>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "green" | "amber" | "red";
+}) {
+  const toneClass =
+    tone === "green"
+      ? "text-green-600 dark:text-green-400"
+      : tone === "amber"
+        ? "text-amber-600 dark:text-amber-400"
+        : tone === "red"
+          ? "text-red-600 dark:text-red-400"
+          : "text-neutral-900 dark:text-neutral-100";
+
+  return (
+    <div className="rounded-lg border border-neutral-200 px-4 py-3 dark:border-neutral-800">
+      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
+
+/** Three dots showing progress toward the 3-video target at a glance. */
+function DeliveredDots({ delivered }: { delivered: number }) {
+  return (
+    <span className="flex gap-1" aria-hidden="true">
+      {[1, 2, 3].map((n) => (
+        <span
+          key={n}
+          className={`h-1.5 w-1.5 rounded-full ${
+            delivered >= n
+              ? "bg-green-500 dark:bg-green-400"
+              : "bg-neutral-300 dark:bg-neutral-700"
+          }`}
+        />
+      ))}
+    </span>
   );
 }
