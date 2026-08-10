@@ -1,10 +1,25 @@
 import { NextResponse } from "next/server";
 import { runSync } from "@/lib/sync";
+import { maybeSendSaturdayNudge } from "@/lib/nudge";
 
 async function handleSync() {
   try {
     const result = await runSync();
-    return NextResponse.json(result);
+
+    // Rides along on the same 15-minute heartbeat; this only actually
+    // posts to Slack once, at Saturday 10:00 Europe/London.
+    let nudge: { sent: boolean; reason?: string } = { sent: false };
+    try {
+      nudge = await maybeSendSaturdayNudge();
+    } catch (nudgeErr) {
+      // A Slack failure shouldn't mark the whole sync as failed.
+      nudge = {
+        sent: false,
+        reason: nudgeErr instanceof Error ? nudgeErr.message : String(nudgeErr),
+      };
+    }
+
+    return NextResponse.json({ ...result, nudge });
   } catch (err) {
     // Only reachable if something failed outside the per-creator try/catch
     // in runSync (e.g. the database itself, or refreshing the access token) —
