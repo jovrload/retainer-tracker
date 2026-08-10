@@ -3,9 +3,9 @@ import { db } from "@/db";
 import { creators, weeks, deliveries, briefTicks, syncRuns } from "@/db/schema";
 import { getOrCreateCurrentWeek } from "@/lib/current-week";
 import { formatRelativeTime, formatLondonTime } from "@/lib/format";
-import { syncNow } from "./actions";
 import { WeekSelect } from "./WeekSelect";
 import { BriefDots } from "./BriefDots";
+import { SyncButton } from "./SyncButton";
 
 type Status = "error" | "red" | "amber" | "green";
 
@@ -110,9 +110,13 @@ export default async function RetainersPage({
     return a.creator.name.localeCompare(b.creator.name);
   });
 
-  const completeCount = rows.filter((r) => r.status === "green").length;
-  const outstandingCount = rows.filter((r) => r.status === "red").length;
-  const inProgressCount = rows.filter((r) => r.status === "amber").length;
+  // Brief-level totals for the summary cards. Delivered is capped at 3 per
+  // creator so "completed" measures progress against the week's requirement
+  // rather than being inflated by over-uploads (e.g. duplicate exports).
+  const briefTarget = rows.length * 3;
+  const briefsSentCount = rows.reduce((sum, r) => sum + r.briefsTicked.length, 0);
+  const briefsCompletedCount = rows.reduce((sum, r) => sum + Math.min(r.delivered, 3), 0);
+  const outstandingCreators = rows.filter((r) => r.delivered < 3).length;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -133,10 +137,25 @@ export default async function RetainersPage({
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Creators" value={rows.length} />
-        <StatCard label="Complete" value={completeCount} tone="green" />
-        <StatCard label="In progress" value={inProgressCount} tone="amber" />
-        <StatCard label="Outstanding" value={outstandingCount} tone="red" />
+        <StatCard label="Creators" value={rows.length} hint="on retainer" />
+        <StatCard
+          label="Briefs sent"
+          value={briefsSentCount}
+          hint={`of ${briefTarget}`}
+          tone={briefsSentCount === briefTarget ? "green" : undefined}
+        />
+        <StatCard
+          label="Briefs completed"
+          value={briefsCompletedCount}
+          hint={`of ${briefTarget} filmed`}
+          tone="green"
+        />
+        <StatCard
+          label="Outstanding"
+          value={outstandingCreators}
+          hint="creators below 3/3"
+          tone={outstandingCreators > 0 ? "red" : "green"}
+        />
       </div>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
@@ -161,16 +180,7 @@ export default async function RetainersPage({
             "never synced"
           )}
         </div>
-        {isCurrentWeek && (
-          <form action={syncNow}>
-            <button
-              type="submit"
-              className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-            >
-              Sync now
-            </button>
-          </form>
-        )}
+        {isCurrentWeek && <SyncButton />}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
@@ -178,18 +188,8 @@ export default async function RetainersPage({
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/50">
             <tr>
               <th className="px-4 py-3 font-medium">Creator</th>
-              <th className="px-4 py-3 font-medium">
-                Briefs sent
-                <span className="ml-1.5 font-normal normal-case text-neutral-400">
-                  · tick by hand
-                </span>
-              </th>
-              <th className="px-4 py-3 font-medium">
-                Delivered
-                <span className="ml-1.5 font-normal normal-case text-neutral-400">
-                  · auto from Drive
-                </span>
-              </th>
+              <th className="px-4 py-3 font-medium">Briefs sent</th>
+              <th className="px-4 py-3 font-medium">Delivered</th>
               <th className="px-4 py-3 font-medium">Last upload</th>
               <th className="px-4 py-3 font-medium">Status</th>
             </tr>
@@ -270,10 +270,12 @@ export default async function RetainersPage({
 function StatCard({
   label,
   value,
+  hint,
   tone,
 }: {
   label: string;
   value: number;
+  hint?: string;
   tone?: "green" | "amber" | "red";
 }) {
   const toneClass =
@@ -288,7 +290,10 @@ function StatCard({
   return (
     <div className="rounded-lg border border-neutral-200 px-4 py-3 dark:border-neutral-800">
       <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className={`text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</span>
+        {hint && <span className="text-xs text-neutral-500">{hint}</span>}
+      </div>
     </div>
   );
 }
