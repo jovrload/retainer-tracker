@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { buttonSecondary } from "@/components/ui/Button";
 
 export function WeekSelect({
   weeks,
@@ -29,15 +30,16 @@ export function WeekSelect({
         onClick={() => go(olderWeek)}
         disabled={!olderWeek}
         aria-label="Previous week"
-        className="rounded border border-neutral-300 px-2.5 py-1.5 text-sm leading-none transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        className={`${buttonSecondary} w-9 px-0 md:w-8`}
       >
-        ←
+        <span aria-hidden="true">←</span>
       </button>
 
       <select
         value={selected}
         onChange={(e) => go(e.currentTarget.value)}
-        className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+        aria-label="Week"
+        className="min-h-9 rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink outline-none transition-colors duration-150 hover:border-line-hover focus-visible:ring-2 focus-visible:ring-ink/25 md:min-h-8"
       >
         {weeks.map((w) => (
           <option key={w.isoWeek} value={w.isoWeek}>
@@ -52,17 +54,14 @@ export function WeekSelect({
         onClick={() => go(newerWeek)}
         disabled={!newerWeek}
         aria-label="Next week"
-        className="rounded border border-neutral-300 px-2.5 py-1.5 text-sm leading-none transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        className={`${buttonSecondary} w-9 px-0 md:w-8`}
       >
-        →
+        <span aria-hidden="true">→</span>
       </button>
 
+      {/* Always reachable while viewing history (Part 2 §10). */}
       {currentWeek && selected !== currentWeek && (
-        <button
-          type="button"
-          onClick={() => go(currentWeek)}
-          className="ml-1 rounded border border-neutral-300 px-2.5 py-1.5 text-sm transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-        >
+        <button type="button" onClick={() => go(currentWeek)} className={buttonSecondary}>
           This week
         </button>
       )}

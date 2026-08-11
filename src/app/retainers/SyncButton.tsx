@@ -2,10 +2,13 @@
 
 import { useTransition } from "react";
 import { syncNow } from "./actions";
+import { buttonPrimary } from "@/components/ui/Button";
 
 /**
- * A full sync takes several seconds (8 Drive folders, sequentially), so the
- * pending state is not cosmetic — without it the button looks broken.
+ * A full sync reads eight Drive folders sequentially and takes several seconds,
+ * so the pending state isn't cosmetic — without it the button looks broken.
+ * Motion here announces work in progress rather than rewarding the click
+ * (Part 1 §9), and is suppressed under prefers-reduced-motion.
  */
 export function SyncButton() {
   const [isPending, startTransition] = useTransition();
@@ -19,14 +22,13 @@ export function SyncButton() {
           await syncNow();
         })
       }
-      className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${
-        isPending
-          ? "animate-pulse cursor-wait bg-neutral-400 text-white dark:bg-neutral-600"
-          : "bg-neutral-900 text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-      }`}
+      className={`${buttonPrimary} ${isPending ? "animate-pulse cursor-wait" : ""}`}
     >
       {isPending && (
-        <span className="h-2 w-2 animate-ping rounded-full bg-white dark:bg-neutral-900" />
+        <span
+          className="h-1.5 w-1.5 shrink-0 animate-ping rounded-full bg-white"
+          aria-hidden="true"
+        />
       )}
       {isPending ? "Syncing…" : "Sync now"}
     </button>

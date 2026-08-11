@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
+/*
+ * House style tokens — see RETAINER-TRACKER-UI-HANDOVER.md Part 1 §3.
+ *
+ * Deliberately light-only. The house palette is a warm off-white ground with
+ * true-white surfaces; that ground/surface contrast is what gives cards a
+ * visible edge without shadows, and there is no sanctioned dark equivalent.
+ * Rather than invent one and quietly diverge, this commits to the spec.
+ */
+@theme {
+  /* Neutrals — warm, not grey */
+  --color-ground: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2f1ee;
+  --color-line: #e8e6e0;
+  --color-line-subtle: #f0eee9;
+  --color-line-hover: #d8d6d0;
+  --color-ink: #1a1916;
+  --color-ink-2: #6b6860;
+  --color-ink-3: #a8a49c;
+  --color-accent: #1a1916;
+
+  /* Semantic scale — contrast-checked at 12.5px/500 on its own background */
+  --color-green-strong: #0f6b3a;
+  --color-green-strong-bg: #e4f4ec;
+  --color-green-mid: #226e45;
+  --color-green-mid-bg: #ebf7f1;
+  --color-green-soft: #23784a;
+  --color-green-soft-bg: #f0faf4;
+  --color-amber: #8a5408;
+  --color-amber-bg: #fef6e4;
+  --color-red-soft: #a8442a;
+  --color-red-soft-bg: #fdf0ec;
+  --color-red-mid: #a82f24;
+  --color-red-mid-bg: #fcecea;
+  /* RESERVED: the one "nothing here can be trusted" state — all folders failing */
+  --color-red-strong: #8c1a11;
+  --color-red-strong-bg: #fae4e2;
+  /* Methodology and explanation only. Never alerts. */
+  --color-info: #1a6fa8;
+  --color-info-bg: #e0f4ff;
+  --color-info-line: #bae3f9;
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+
+  --container-page: 1160px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  /* Wide content opts back in via its own scroll container. */
+  overflow-x: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Every number aligns. One line of CSS, the difference between a table you
+   can scan and one you can't. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hero numbers — Part 1 §4 */
+.hero-num {
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Motion announces arrival; it never rewards interaction. Part 1 §9. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-card-in {
+  animation: card-in 0.3s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .animate-card-in {
+    animation: none;
+  }
 }
