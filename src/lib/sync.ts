@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { creators, deliveries, syncRuns } from "@/db/schema";
 import { getOrCreateCurrentWeek } from "@/lib/current-week";
-import { getDriveAccessToken, listVideosInFolder } from "@/lib/google-drive";
+import { getDriveAccessToken, scanFolderForVideos } from "@/lib/google-drive";
+import { looksLikeTof } from "@/lib/tof";
 
 const MIN_VIDEO_BYTES = 5 * 1024 * 1024;
 
@@ -15,15 +16,21 @@ type CreatorSyncError = {
 export type SyncResult = {
   isoWeek: string;
   creatorsChecked: number;
+  /** Qualifying videos stored, briefed or not. */
   filesFound: number;
+  /** Of those, the ones labelled as briefed work. */
+  tofFound: number;
   errorCount: number;
   errors: CreatorSyncError[];
+  /** Creators whose folder tree hit the traversal cap — never silently dropped. */
+  truncatedCreators: string[];
 };
 
 /**
- * Runs one full sync pass across every active creator's Drive folder.
+ * Runs one full sync pass across every active creator's Drive folder tree.
+ *
  * Read-only against Drive; safe to run repeatedly (upserts on
- * `deliveries.driveFileId`, so re-running never changes the count).
+ * `deliveries.driveFileId`, so re-running never changes a count).
  * A single creator's folder erroring never aborts the rest of the run.
  */
 export async function runSync(): Promise<SyncResult> {
@@ -34,47 +41,44 @@ export async function runSync(): Promise<SyncResult> {
   const accessToken = await getDriveAccessToken();
 
   let filesFound = 0;
+  let tofFound = 0;
   const errors: CreatorSyncError[] = [];
+  const truncatedCreators: string[] = [];
 
   for (const creator of activeCreators) {
     try {
-      const files = await listVideosInFolder(accessToken, creator.driveFolderId, week.startsAt);
+      const scan = await scanFolderForVideos(accessToken, creator.driveFolderId, week.startsAt);
+      if (scan.truncated) truncatedCreators.push(creator.handle);
 
-      for (const file of files) {
+      for (const file of scan.videos) {
         const sizeBytes = Number(file.size ?? 0);
         if (sizeBytes < MIN_VIDEO_BYTES) continue;
 
         const createdTime = new Date(file.createdTime);
         const isLate = createdTime > week.dueAt;
+        const isTof = looksLikeTof(file.name, file.folderPath);
+        const folderPath = file.folderPath.join(" / ") || null;
+
+        const row = {
+          weekId: week.id,
+          creatorId: creator.id,
+          fileName: file.name,
+          sizeBytes,
+          mimeType: file.mimeType,
+          createdTime,
+          isLate,
+          isTof,
+          folderPath,
+          syncedAt: new Date(),
+        };
 
         await db
           .insert(deliveries)
-          .values({
-            weekId: week.id,
-            creatorId: creator.id,
-            driveFileId: file.id,
-            fileName: file.name,
-            sizeBytes,
-            mimeType: file.mimeType,
-            createdTime,
-            isLate,
-            syncedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: deliveries.driveFileId,
-            set: {
-              weekId: week.id,
-              creatorId: creator.id,
-              fileName: file.name,
-              sizeBytes,
-              mimeType: file.mimeType,
-              createdTime,
-              isLate,
-              syncedAt: new Date(),
-            },
-          });
+          .values({ ...row, driveFileId: file.id })
+          .onConflictDoUpdate({ target: deliveries.driveFileId, set: row });
 
         filesFound++;
+        if (isTof) tofFound++;
       }
     } catch (err) {
       errors.push({
@@ -98,7 +102,9 @@ export async function runSync(): Promise<SyncResult> {
     isoWeek: week.isoWeek,
     creatorsChecked: activeCreators.length,
     filesFound,
+    tofFound,
     errorCount: errors.length,
     errors,
+    truncatedCreators,
   };
 }

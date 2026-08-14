@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { Tag } from "@/components/ui/Tag";
 import { BriefDots } from "./BriefDots";
+import { RowFlags } from "./RowFlags";
 import { formatLondonTime, formatRelativeTime, NULL_DASH } from "@/lib/format";
 import { BRIEFS_PER_WEEK, STATUS_EXPLAINER } from "@/lib/status";
 import type { CreatorRow } from "./types";
@@ -78,19 +78,21 @@ export function CreatorCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-line-subtle pt-3 text-[13px] text-ink-2">
-          <span title={formatLondonTime(row.lastUpload)}>
-            Last upload: {formatRelativeTime(row.lastUpload, now)}
-          </span>
-          {row.anyLate && <Tag title="Landed after the Sunday 23:59 deadline. It still counts.">late</Tag>}
-          {row.hasDuplicate && (
-            <Tag
-              tone="amber"
-              title="Two videos this week have an identical file size, which usually means the same export was uploaded twice. Worth a look, not a verdict."
-            >
-              possible duplicate
-            </Tag>
-          )}
+        <div className="flex flex-col gap-2 border-t border-line-subtle pt-3 text-[13px] text-ink-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span title={formatLondonTime(row.lastUpload)}>
+              Last upload: {formatRelativeTime(row.lastUpload, now)}
+            </span>
+            {row.delivered !== null && row.unlabelled > 0 && (
+              <span
+                className="tnum"
+                title={`${row.unlabelled} video${row.unlabelled === 1 ? "" : "s"} uploaded this week were not labelled TOF, so they don't count toward the target.`}
+              >
+                {row.unlabelled} unlabelled
+              </span>
+            )}
+          </div>
+          <RowFlags row={row} />
         </div>
       </div>
     </Card>

@@ -22,19 +22,32 @@ async function buildNudgeMessage(): Promise<string> {
   const activeCreators = await db.select().from(creators).where(eq(creators.active, true));
   const weekDeliveries = await db.select().from(deliveries).where(eq(deliveries.weekId, week.id));
 
-  const outstanding = activeCreators
-    .map((c) => ({
+  // Only briefed ("TOF") videos count, matching the dashboard. Unlabelled
+  // uploads are called out separately so the nudge never reads as "delivered
+  // nothing" when the real problem is a missing label.
+  const rows = activeCreators.map((c) => {
+    const mine = weekDeliveries.filter((d) => d.creatorId === c.id);
+    return {
       creator: c,
-      delivered: weekDeliveries.filter((d) => d.creatorId === c.id).length,
-    }))
-    .filter((r) => r.delivered < 3);
+      delivered: mine.filter((d) => d.isTof).length,
+      unlabelled: mine.filter((d) => !d.isTof).length,
+    };
+  });
+
+  const outstanding = rows.filter((r) => r.delivered < 3);
 
   if (outstanding.length === 0) {
     return `Retainer check-in for ${week.isoWeek}: all ${activeCreators.length} creators are at 3/3. Nothing outstanding.`;
   }
 
   const lines = outstanding
-    .map((r) => `• ${r.creator.name} (@${r.creator.handle}) — ${r.delivered}/3`)
+    .map((r) => {
+      const note =
+        r.unlabelled > 0
+          ? ` (plus ${r.unlabelled} video${r.unlabelled === 1 ? "" : "s"} not labelled TOF)`
+          : "";
+      return `• ${r.creator.name} (@${r.creator.handle}) — ${r.delivered}/3${note}`;
+    })
     .join("\n");
 
   return `Retainer check-in for ${week.isoWeek} — ${outstanding.length} creator${outstanding.length === 1 ? "" : "s"} not yet at 3/3:\n${lines}`;

@@ -103,6 +103,15 @@ export const deliveries = pgTable(
     mimeType: text("mime_type"),
     createdTime: timestamp("created_time", { withTimezone: true, mode: "date" }),
     isLate: boolean("is_late").notNull().default(false),
+    /**
+     * Labelled as briefed work ("TOF"), either in the filename or by sitting in
+     * a TOF folder. Only these count toward the weekly target — the rest is
+     * b-roll and the creators' own content. Non-TOF videos are still stored so
+     * "delivered nothing" can be told apart from "delivered but unlabelled".
+     */
+    isTof: boolean("is_tof").notNull().default(false),
+    /** Where in the creator's tree it was found, e.g. "AUGUST / Week 4". */
+    folderPath: text("folder_path"),
     syncedAt: timestamp("synced_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

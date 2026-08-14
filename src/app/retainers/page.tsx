@@ -21,14 +21,15 @@ import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { Banner } from "@/components/ui/Banner";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { Tag } from "@/components/ui/Tag";
 import { FreshnessIndicator } from "@/components/ui/FreshnessIndicator";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DefinedLabel } from "@/components/ui/DefinedLabel";
+import { looksLikePart } from "@/lib/tof";
 import { WeekSelect } from "./WeekSelect";
 import { BriefDots } from "./BriefDots";
 import { SyncButton } from "./SyncButton";
 import { CreatorCard } from "./CreatorCard";
+import { RowFlags } from "./RowFlags";
 import type { CreatorRow } from "./types";
 
 export default async function RetainersPage({
@@ -91,17 +92,21 @@ export default async function RetainersPage({
 
   const rows: CreatorRow[] = activeCreators.map((creator) => {
     const mine = weekDeliveries.filter((d) => d.creatorId === creator.id);
+    // Only briefed videos count. The rest of a folder is b-roll and the
+    // creator's own content, which would otherwise swamp the target.
+    const briefed = mine.filter((d) => d.isTof);
+    const unlabelled = mine.length - briefed.length;
 
     const isUnknown = applyErrors && (everyFolderFailed || syncErrors.has(creator.id));
-    const delivered = isUnknown ? null : mine.length;
+    const delivered = isUnknown ? null : briefed.length;
 
-    const lastUpload = mine.reduce<Date | null>((latest, d) => {
+    const lastUpload = briefed.reduce<Date | null>((latest, d) => {
       if (!d.createdTime) return latest;
       return !latest || d.createdTime > latest ? d.createdTime : latest;
     }, null);
 
     const sizeCounts = new Map<number, number>();
-    mine.forEach((d) => {
+    briefed.forEach((d) => {
       if (d.sizeBytes == null) return;
       sizeCounts.set(d.sizeBytes, (sizeCounts.get(d.sizeBytes) ?? 0) + 1);
     });
@@ -111,10 +116,13 @@ export default async function RetainersPage({
       name: creator.name,
       handle: creator.handle,
       delivered,
+      unlabelled: isUnknown ? 0 : unlabelled,
       briefsTicked: weekTicks.filter((t) => t.creatorId === creator.id).map((t) => t.briefNo),
       lastUpload: isUnknown ? null : lastUpload,
-      anyLate: !isUnknown && mine.some((d) => d.isLate),
+      anyLate: !isUnknown && briefed.some((d) => d.isLate),
       hasDuplicate: !isUnknown && [...sizeCounts.values()].some((c) => c > 1),
+      hasSplitParts:
+        !isUnknown && briefed.some((d) => d.fileName && looksLikePart(d.fileName)),
       status: resolveStatus({
         delivered: delivered ?? 0,
         dueAt: selectedWeek.dueAt,
@@ -192,8 +200,9 @@ export default async function RetainersPage({
         {/* The single highest-value piece of copy on the page. The dashboard has
             no login, so readers who never saw the handover land here too. */}
         <Banner>
-          <strong className="font-semibold">Delivered</strong> means the video is in Drive. It
-          does not mean it is live on TikTok.
+          <strong className="font-semibold">Delivered</strong> counts videos labelled{" "}
+          <strong className="font-semibold">TOF</strong> in Drive. It does not mean they are live on
+          TikTok.
         </Banner>
       </header>
 
@@ -356,7 +365,7 @@ export default async function RetainersPage({
                     <th className="border-l border-line px-4 pt-3 pb-1 font-semibold">
                       You track
                     </th>
-                    <th className="border-l border-line px-4 pt-3 pb-1 font-semibold" colSpan={4}>
+                    <th className="border-l border-line px-4 pt-3 pb-1 font-semibold" colSpan={5}>
                       Drive reports
                     </th>
                   </tr>
@@ -366,8 +375,13 @@ export default async function RetainersPage({
                       Briefs sent
                     </th>
                     <th className="whitespace-nowrap border-l border-line px-4 pt-1 pb-3 text-right font-semibold">
-                      <DefinedLabel definition="Qualifying videos found in this creator's Drive folder during the selected week. An em-dash means the folder check failed, so the count is unknown.">
+                      <DefinedLabel definition="Videos labelled TOF, found anywhere in this creator's folder tree during the selected week. An em-dash means the folder check failed, so the count is unknown.">
                         Delivered
+                      </DefinedLabel>
+                    </th>
+                    <th className="whitespace-nowrap px-4 pt-1 pb-3 text-right font-semibold">
+                      <DefinedLabel definition="Other videos uploaded this week that were not labelled TOF — b-roll, the creator's own content, or a briefed video where the label was forgotten.">
+                        Unlabelled
                       </DefinedLabel>
                     </th>
                     <th className="whitespace-nowrap px-4 pt-1 pb-3 font-semibold">Last upload</th>
@@ -425,6 +439,23 @@ export default async function RetainersPage({
                           )}
                         </td>
 
+                        {/* Unlabelled uploads get their own cell: a creator who
+                            filmed but didn't label is a different problem from
+                            one who filmed nothing. */}
+                        <td className="tnum whitespace-nowrap px-4 py-3.5 text-right text-ink-2">
+                          {row.delivered === null ? (
+                            <span className="text-ink-3">{NULL_DASH}</span>
+                          ) : row.unlabelled > 0 ? (
+                            <span
+                              title={`${row.unlabelled} qualifying video${row.unlabelled === 1 ? "" : "s"} in this creator's folders this week were not labelled TOF, so they don't count toward the target.`}
+                            >
+                              {row.unlabelled}
+                            </span>
+                          ) : (
+                            <span className="text-ink-3">0</span>
+                          )}
+                        </td>
+
                         <td className="whitespace-nowrap px-4 py-3.5 text-ink-2">
                           <span title={formatLondonTime(row.lastUpload)}>
                             {row.delivered === null
@@ -434,24 +465,7 @@ export default async function RetainersPage({
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            {row.anyLate && (
-                              <Tag title="Landed after the Sunday 23:59 deadline. It still counts toward the total.">
-                                late
-                              </Tag>
-                            )}
-                            {row.hasDuplicate && (
-                              <Tag
-                                tone="amber"
-                                title="Two videos this week have an identical file size, which usually means the same export was uploaded twice. Worth a look, not a verdict."
-                              >
-                                possible duplicate
-                              </Tag>
-                            )}
-                            {!row.anyLate && !row.hasDuplicate && (
-                              <span className="text-ink-3">{NULL_DASH}</span>
-                            )}
-                          </div>
+                          <RowFlags row={row} />
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3.5">
@@ -493,10 +507,16 @@ export default async function RetainersPage({
           from reality when a tick gets missed.
         </p>
         <p>
-          A video counts once it is at least 5MB and lands in the creator&rsquo;s folder inside the
-          week. <strong className="font-medium">Outstanding</strong> and{" "}
-          <strong className="font-medium">Behind</strong> appear within{" "}
-          {DEADLINE_CLOSE_HOURS} hours of the deadline; before that a shortfall reads{" "}
+          A video counts once it is at least 5MB, lands anywhere in the creator&rsquo;s folder tree
+          inside the week, and is labelled <strong className="font-medium">TOF</strong> — either in
+          the filename or by sitting in a TOF folder. Everything else is counted as{" "}
+          <strong className="font-medium">unlabelled</strong> rather than discarded, so a forgotten
+          label never looks like a missed delivery.
+        </p>
+        <p>
+          <strong className="font-medium">Outstanding</strong> and{" "}
+          <strong className="font-medium">Behind</strong> appear within {DEADLINE_CLOSE_HOURS} hours
+          of the deadline; before that a shortfall reads{" "}
           <strong className="font-medium">On track</strong>.
         </p>
       </footer>
