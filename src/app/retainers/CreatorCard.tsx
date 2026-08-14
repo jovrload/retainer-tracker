@@ -46,7 +46,7 @@ export function CreatorCard({
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
-              Delivered
+              TOF delivered
             </p>
             {row.delivered === null ? (
               <p
@@ -83,12 +83,12 @@ export function CreatorCard({
             <span title={formatLondonTime(row.lastUpload)}>
               Last upload: {formatRelativeTime(row.lastUpload, now)}
             </span>
-            {row.delivered !== null && row.unlabelled > 0 && (
+            {row.delivered !== null && (
               <span
                 className="tnum"
-                title={`${row.unlabelled} video${row.unlabelled === 1 ? "" : "s"} uploaded this week were not labelled TOF, so they don't count toward the target.`}
+                title={`${row.videosUploaded} video${row.videosUploaded === 1 ? "" : "s"} uploaded this week in total; ${row.delivered} labelled TOF.`}
               >
-                {row.unlabelled} unlabelled
+                {row.videosUploaded} uploaded
               </span>
             )}
           </div>

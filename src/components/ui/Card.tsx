@@ -18,6 +18,8 @@ export function Card({
   accent = "none",
   interactive = false,
   padded = true,
+  /** Reserved for the single hero panel: soft elevation + a faint ground wash. */
+  hero = false,
   style,
 }: {
   children: ReactNode;
@@ -25,18 +27,21 @@ export function Card({
   accent?: CardAccent;
   interactive?: boolean;
   padded?: boolean;
+  hero?: boolean;
   style?: React.CSSProperties;
 }) {
   return (
     <div
       style={style}
       className={[
-        "rounded-2xl border border-line bg-surface",
+        "rounded-2xl border border-line",
+        hero
+          ? "elevate bg-gradient-to-b from-surface to-surface-2/45"
+          : "elevate-sm bg-surface",
         padded ? "p-5" : "",
         ACCENT_CLASS[accent],
-        // Depth never comes from stacked shadows — only interactive cards lift.
         interactive
-          ? "transition-[border-color,box-shadow] duration-150 hover:border-line-hover hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]"
+          ? "transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-line-hover hover:shadow-[0_4px_16px_-4px_rgba(26,25,22,0.10)]"
           : "",
         className,
       ]

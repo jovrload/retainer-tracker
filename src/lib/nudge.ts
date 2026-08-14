@@ -30,7 +30,7 @@ async function buildNudgeMessage(): Promise<string> {
     return {
       creator: c,
       delivered: mine.filter((d) => d.isTof).length,
-      unlabelled: mine.filter((d) => !d.isTof).length,
+      uploaded: mine.length,
     };
   });
 
@@ -42,11 +42,14 @@ async function buildNudgeMessage(): Promise<string> {
 
   const lines = outstanding
     .map((r) => {
+      // Flagging total uploads matters most when it's high and TOF is zero:
+      // that's a labelling problem, not a delivery one, and chasing them for
+      // not filming would be wrong.
       const note =
-        r.unlabelled > 0
-          ? ` (plus ${r.unlabelled} video${r.unlabelled === 1 ? "" : "s"} not labelled TOF)`
+        r.uploaded > r.delivered
+          ? ` — uploaded ${r.uploaded} video${r.uploaded === 1 ? "" : "s"} this week${r.delivered === 0 ? ", none labelled TOF" : ""}`
           : "";
-      return `• ${r.creator.name} (@${r.creator.handle}) — ${r.delivered}/3${note}`;
+      return `• ${r.creator.name} (@${r.creator.handle}) — ${r.delivered}/3 TOF${note}`;
     })
     .join("\n");
 

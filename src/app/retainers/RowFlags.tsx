@@ -10,7 +10,7 @@ import type { CreatorRow } from "./types";
  * to solve), everything ambiguous is amber and asks for a human judgement.
  */
 export function RowFlags({ row }: { row: CreatorRow }) {
-  const noneLabelled = row.delivered === 0 && row.unlabelled > 0;
+  const noneLabelled = row.delivered === 0 && row.videosUploaded > 0;
   const hasAny = row.anyLate || row.hasDuplicate || row.hasSplitParts || noneLabelled;
 
   if (row.delivered === null) return <span className="text-ink-3">{NULL_DASH}</span>;
@@ -21,7 +21,7 @@ export function RowFlags({ row }: { row: CreatorRow }) {
       {noneLabelled && (
         <Tag
           tone="amber"
-          title={`This creator uploaded ${row.unlabelled} video${row.unlabelled === 1 ? "" : "s"} this week but none are labelled TOF. They may have filmed the briefs and forgotten the label — worth checking before chasing.`}
+          title={`This creator uploaded ${row.videosUploaded} video${row.videosUploaded === 1 ? "" : "s"} this week but none are labelled TOF. They may have filmed the briefs and forgotten the label — worth checking before chasing.`}
         >
           nothing labelled TOF
         </Tag>

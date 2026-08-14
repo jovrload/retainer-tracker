@@ -10,10 +10,10 @@ import { STATUS_LABEL, type StatusKind } from "@/lib/status";
  */
 const PILL_CLASS: Record<StatusKind, string> = {
   unknown: "border border-line-hover bg-surface text-ink-2",
-  outstanding: "bg-red-mid-bg text-red-mid",
-  behind: "bg-amber-bg text-amber",
-  ontrack: "bg-surface-2 text-ink-2",
-  complete: "bg-green-strong-bg text-green-strong",
+  outstanding: "bg-red-mid-bg text-red-mid ring-1 ring-inset ring-red-mid/15",
+  behind: "bg-amber-bg text-amber ring-1 ring-inset ring-amber/15",
+  ontrack: "bg-surface-2 text-ink-2 ring-1 ring-inset ring-ink/[0.06]",
+  complete: "bg-green-strong-bg text-green-strong ring-1 ring-inset ring-green-strong/15",
 };
 
 export function StatusPill({

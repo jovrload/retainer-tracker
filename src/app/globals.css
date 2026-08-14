@@ -9,13 +9,20 @@
  * Rather than invent one and quietly diverge, this commits to the spec.
  */
 @theme {
-  /* Neutrals — warm, not grey */
-  --color-ground: #f7f6f3;
+  /*
+   * Neutrals. The house ground was #F7F6F3, a 3% warm off-white; this is a
+   * deliberate, requested divergence to a near-white that keeps only a trace
+   * of warmth. Because that shrinks the ground/surface contrast the house
+   * style relies on for edges, `--color-line` is darkened to compensate and
+   * cards keep a whisper of elevation — depth still never comes from stacked
+   * shadows or dark panels.
+   */
+  --color-ground: #fbfbfa;
   --color-surface: #ffffff;
-  --color-surface-2: #f2f1ee;
-  --color-line: #e8e6e0;
-  --color-line-subtle: #f0eee9;
-  --color-line-hover: #d8d6d0;
+  --color-surface-2: #f4f3f0;
+  --color-line: #e3e0d9;
+  --color-line-subtle: #eeece7;
+  --color-line-hover: #cfccc4;
   --color-ink: #1a1916;
   --color-ink-2: #6b6860;
   --color-ink-3: #a8a49c;
@@ -93,6 +100,76 @@ body {
   animation: card-in 0.3s ease both;
 }
 
+/* Rows arrive on the same signature as cards, staggered down the table. */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-row-in {
+  animation: row-in 0.28s ease both;
+}
+
+/* The progress bar draws itself in rather than appearing already full —
+   the one place the week's shape is worth animating. */
+@keyframes bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.animate-bar-fill {
+  transform-origin: left center;
+  animation: bar-fill 0.65s cubic-bezier(0.22, 0.68, 0.32, 1) both;
+}
+
+/* Soft depth for the hero panel only. */
+.elevate {
+  box-shadow:
+    0 1px 2px rgba(26, 25, 22, 0.04),
+    0 10px 30px -12px rgba(26, 25, 22, 0.1);
+}
+
+.elevate-sm {
+  box-shadow: 0 1px 2px rgba(26, 25, 22, 0.035);
+}
+
+/*
+ * A hairline left marker on hover, so the eye can hold a row across seven
+ * columns without a heavy background fill.
+ *
+ * Deliberately hung off the row's first CELL, not the <tr>. A pseudo-element
+ * on a table row gets wrapped in an anonymous table cell, which silently adds
+ * a phantom column and shifts every body row out of line with its headers.
+ */
+.row-marker-cell {
+  position: relative;
+}
+
+.row-marker-cell::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--color-ink);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+tr:hover > .row-marker-cell::before {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -102,7 +179,10 @@ body {
     transition-duration: 0.001ms !important;
   }
 
-  .animate-card-in {
+  .animate-card-in,
+  .animate-row-in,
+  .animate-bar-fill {
     animation: none;
+    transform: none;
   }
 }

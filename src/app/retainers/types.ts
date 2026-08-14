@@ -9,8 +9,12 @@ export type CreatorRow = {
    * null when the folder check failed; never coerce that to 0 (Law 2).
    */
   delivered: number | null;
-  /** Qualifying videos found that were not labelled as briefed work. */
-  unlabelled: number;
+  /**
+   * Every qualifying video the creator uploaded this week, briefed or not.
+   * Shown alongside the TOF count so the whole week is visible: "uploaded 9,
+   * none of them briefed" is a very different story from "uploaded nothing".
+   */
+  videosUploaded: number;
   briefsTicked: number[];
   lastUpload: Date | null;
   anyLate: boolean;

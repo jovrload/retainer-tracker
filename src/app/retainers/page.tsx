@@ -95,7 +95,6 @@ export default async function RetainersPage({
     // Only briefed videos count. The rest of a folder is b-roll and the
     // creator's own content, which would otherwise swamp the target.
     const briefed = mine.filter((d) => d.isTof);
-    const unlabelled = mine.length - briefed.length;
 
     const isUnknown = applyErrors && (everyFolderFailed || syncErrors.has(creator.id));
     const delivered = isUnknown ? null : briefed.length;
@@ -116,7 +115,7 @@ export default async function RetainersPage({
       name: creator.name,
       handle: creator.handle,
       delivered,
-      unlabelled: isUnknown ? 0 : unlabelled,
+      videosUploaded: isUnknown ? 0 : mine.length,
       briefsTicked: weekTicks.filter((t) => t.creatorId === creator.id).map((t) => t.briefNo),
       lastUpload: isUnknown ? null : lastUpload,
       anyLate: !isUnknown && briefed.some((d) => d.isLate),
@@ -181,12 +180,13 @@ export default async function RetainersPage({
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-semibold tracking-tight text-ink md:text-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              Ovrload · {selectedWeek.isoWeek}
+            </p>
+            <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink md:text-[32px] md:leading-[1.1]">
               Retainer delivery tracker
             </h1>
-            <p className="text-sm text-ink-2">
-              Who needs chasing this week, and how urgently.
-            </p>
+            <p className="text-sm text-ink-2">Who needs chasing this week, and how urgently.</p>
           </div>
           <WeekSelect
             weeks={allWeeks.map((w) => ({
@@ -200,9 +200,8 @@ export default async function RetainersPage({
         {/* The single highest-value piece of copy on the page. The dashboard has
             no login, so readers who never saw the handover land here too. */}
         <Banner>
-          <strong className="font-semibold">Delivered</strong> counts videos labelled{" "}
-          <strong className="font-semibold">TOF</strong> in Drive. It does not mean they are live on
-          TikTok.
+          <strong className="font-semibold">TOF delivered</strong> counts briefed videos found in
+          Drive. It does not mean they are live on TikTok.
         </Banner>
       </header>
 
@@ -225,7 +224,7 @@ export default async function RetainersPage({
       )}
 
       {/* ---------- summary band: the answer, before the evidence ---------- */}
-      <Card accent={bandAccent}>
+      <Card accent={bandAccent} hero className="animate-card-in">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">
           <div className="flex items-start gap-6 md:gap-8">
             <div>
@@ -234,7 +233,7 @@ export default async function RetainersPage({
               </p>
               <p className="mt-1.5 flex items-baseline gap-1.5">
                 <span
-                  className={`hero-num text-4xl ${
+                  className={`hero-num text-5xl ${
                     allUnknown
                       ? "text-ink-3"
                       : shortCount === 0 && countsAreComplete
@@ -255,7 +254,7 @@ export default async function RetainersPage({
                 Complete
               </p>
               <p className="mt-1.5 flex items-baseline gap-1.5">
-                <span className={`hero-num text-4xl ${allUnknown ? "text-ink-3" : "text-ink"}`}>
+                <span className={`hero-num text-5xl ${allUnknown ? "text-ink-3" : "text-ink"}`}>
                   {allUnknown ? NULL_DASH : completeCount}
                 </span>
                 {!allUnknown && (
@@ -277,13 +276,15 @@ export default async function RetainersPage({
               </span>
             </div>
             <div
-              className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2"
+              className="h-2 w-full overflow-hidden rounded-full bg-surface-2"
               role="img"
               aria-label={`Week ${Math.round(progress * 100)} percent elapsed`}
             >
               <div
-                className={`h-full rounded-full ${
-                  progress >= 1 ? "bg-ink-3" : "bg-ink"
+                className={`animate-bar-fill h-full rounded-full ${
+                  progress >= 1
+                    ? "bg-ink-3"
+                    : "bg-gradient-to-r from-ink/70 to-ink"
                 }`}
                 style={{ width: `${Math.max(2, progress * 100)}%` }}
               />
@@ -303,7 +304,7 @@ export default async function RetainersPage({
 
       {/* ---------- brief counters ---------- */}
       <div className="grid grid-cols-2 gap-3">
-        <Card>
+        <Card interactive className="animate-card-in" style={{ animationDelay: "60ms" }}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
             <DefinedLabel definition="Briefs you have marked as sent by hand. Nothing here is automated — this does not affect any creator's status.">
               Briefs sent
@@ -314,10 +315,10 @@ export default async function RetainersPage({
             <span className="text-sm font-medium text-ink-2">of {briefTarget}</span>
           </p>
         </Card>
-        <Card>
+        <Card interactive className="animate-card-in" style={{ animationDelay: "100ms" }}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
-            <DefinedLabel definition="Qualifying videos found in Drive, counted automatically and capped at three per creator so extra uploads don't inflate progress.">
-              Briefs filmed
+            <DefinedLabel definition="Videos labelled TOF found in Drive, counted automatically and capped at three per creator so extra uploads don't inflate progress.">
+              TOF filmed
             </DefinedLabel>
           </p>
           <p className="mt-1.5 flex items-baseline gap-1.5">
@@ -375,13 +376,13 @@ export default async function RetainersPage({
                       Briefs sent
                     </th>
                     <th className="whitespace-nowrap border-l border-line px-4 pt-1 pb-3 text-right font-semibold">
-                      <DefinedLabel definition="Videos labelled TOF, found anywhere in this creator's folder tree during the selected week. An em-dash means the folder check failed, so the count is unknown.">
-                        Delivered
+                      <DefinedLabel definition="Every video this creator uploaded during the selected week, anywhere in their folder tree — briefed work, b-roll and their own content together.">
+                        Videos uploaded
                       </DefinedLabel>
                     </th>
                     <th className="whitespace-nowrap px-4 pt-1 pb-3 text-right font-semibold">
-                      <DefinedLabel definition="Other videos uploaded this week that were not labelled TOF — b-roll, the creator's own content, or a briefed video where the label was forgotten.">
-                        Unlabelled
+                      <DefinedLabel definition="Of those uploads, the ones labelled TOF — the briefed videos that count toward the weekly target. An em-dash means the folder check failed, so the count is unknown.">
+                        TOF delivered
                       </DefinedLabel>
                     </th>
                     <th className="whitespace-nowrap px-4 pt-1 pb-3 font-semibold">Last upload</th>
@@ -399,13 +400,14 @@ export default async function RetainersPage({
                     return (
                       <tr
                         key={row.creatorId}
-                        className={`transition-colors duration-150 hover:bg-surface-2/60 ${
+                        style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
+                        className={`animate-row-in transition-colors duration-150 hover:bg-surface-2/50 ${
                           isLastUnknown
                             ? "border-b-2 border-line-hover"
                             : "border-b border-line-subtle last:border-b-0"
                         }`}
                       >
-                        <td className="whitespace-nowrap px-4 py-3.5">
+                        <td className="row-marker-cell whitespace-nowrap px-4 py-3.5">
                           <div className="font-semibold text-ink">{row.name}</div>
                           <div className="text-[13px] text-ink-2">@{row.handle}</div>
                         </td>
@@ -421,39 +423,43 @@ export default async function RetainersPage({
 
                         {/* Value and flags live in separate cells, so a
                             variable-width tag can't push the number around. */}
-                        <td className="tnum whitespace-nowrap border-l border-line-subtle px-4 py-3.5 text-right">
-                          {row.delivered === null ? (
-                            <span
-                              className="text-lg font-semibold text-ink-3"
-                              title={row.errorMessage}
-                            >
-                              {NULL_DASH}
-                            </span>
-                          ) : (
-                            <span className="text-lg font-bold text-ink">
-                              {row.delivered}
-                              <span className="text-sm font-medium text-ink-3">
-                                /{BRIEFS_PER_WEEK}
-                              </span>
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Unlabelled uploads get their own cell: a creator who
-                            filmed but didn't label is a different problem from
-                            one who filmed nothing. */}
-                        <td className="tnum whitespace-nowrap px-4 py-3.5 text-right text-ink-2">
+                        {/* Total uploads: the quieter number, giving the TOF
+                            count its context. Kept in its own cell so a
+                            variable-width flag can't shove either around. */}
+                        <td className="tnum whitespace-nowrap border-l border-line-subtle px-4 py-3.5 text-right text-ink-2">
                           {row.delivered === null ? (
                             <span className="text-ink-3">{NULL_DASH}</span>
-                          ) : row.unlabelled > 0 ? (
+                          ) : row.videosUploaded > 0 ? (
                             <span
-                              title={`${row.unlabelled} qualifying video${row.unlabelled === 1 ? "" : "s"} in this creator's folders this week were not labelled TOF, so they don't count toward the target.`}
+                              className="font-medium"
+                              title={`${row.videosUploaded} video${row.videosUploaded === 1 ? "" : "s"} uploaded this week, of which ${row.delivered} ${row.delivered === 1 ? "is" : "are"} labelled TOF.`}
                             >
-                              {row.unlabelled}
+                              {row.videosUploaded}
                             </span>
                           ) : (
                             <span className="text-ink-3">0</span>
                           )}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-3.5">
+                          <div className="flex items-center justify-end gap-2.5">
+                            {row.delivered !== null && <DeliveredMeter value={row.delivered} />}
+                            {row.delivered === null ? (
+                              <span
+                                className="tnum text-lg font-semibold text-ink-3"
+                                title={row.errorMessage}
+                              >
+                                {NULL_DASH}
+                              </span>
+                            ) : (
+                              <span className="tnum text-lg font-bold text-ink">
+                                {row.delivered}
+                                <span className="text-sm font-medium text-ink-3">
+                                  /{BRIEFS_PER_WEEK}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="whitespace-nowrap px-4 py-3.5 text-ink-2">
@@ -507,11 +513,12 @@ export default async function RetainersPage({
           from reality when a tick gets missed.
         </p>
         <p>
-          A video counts once it is at least 5MB, lands anywhere in the creator&rsquo;s folder tree
-          inside the week, and is labelled <strong className="font-medium">TOF</strong> — either in
-          the filename or by sitting in a TOF folder. Everything else is counted as{" "}
-          <strong className="font-medium">unlabelled</strong> rather than discarded, so a forgotten
-          label never looks like a missed delivery.
+          <strong className="font-medium">Videos uploaded</strong> counts everything at least 5MB
+          that landed anywhere in the creator&rsquo;s folder tree inside the week.{" "}
+          <strong className="font-medium">TOF delivered</strong> is the subset labelled{" "}
+          <strong className="font-medium">TOF</strong> — either in the filename or by sitting in a
+          TOF folder — and only those count toward the target. Showing both means a forgotten label
+          never looks like a missed delivery.
         </p>
         <p>
           <strong className="font-medium">Outstanding</strong> and{" "}
@@ -521,5 +528,25 @@ export default async function RetainersPage({
         </p>
       </footer>
     </main>
+  );
+}
+
+/**
+ * Three thin bars filling toward the target. Drawn as bars, not dots, so it
+ * can never be mistaken for the square hand-ticked brief controls beside it
+ * (Part 2 §2: different shape, not just different colour). Not interactive.
+ */
+function DeliveredMeter({ value }: { value: number }) {
+  return (
+    <span className="hidden items-center gap-[3px] lg:inline-flex" aria-hidden="true">
+      {[1, 2, 3].map((n) => (
+        <span
+          key={n}
+          className={`h-4 w-[3px] rounded-full transition-colors duration-150 ${
+            value >= n ? "bg-green-strong" : "bg-surface-2"
+          }`}
+        />
+      ))}
+    </span>
   );
 }
