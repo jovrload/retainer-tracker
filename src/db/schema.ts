@@ -120,6 +120,35 @@ export const deliveries = pgTable(
 );
 
 /**
+ * One row per Slack message actually sent, so nothing is ever sent twice.
+ *
+ * Load-bearing: the sync runs every 15 minutes, so "this creator hit 3/3"
+ * would fire dozens of times a day without a record of what's already gone
+ * out. It also makes the scheduled digests robust to cron drift — they can
+ * fire on the first run at or after their slot instead of needing to land on
+ * an exact minute, which would silently skip a week if a run were delayed.
+ *
+ * `dedupeKey` is built in code (e.g. "2026-W33:complete:4",
+ * "2026-W33:thursday") and carries the whole uniqueness rule, which avoids
+ * Postgres treating NULL creator ids as distinct for week-wide messages.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    dedupeKey: text("dedupe_key").notNull(),
+    kind: text("kind").notNull(),
+    weekId: integer("week_id")
+      .notNull()
+      .references(() => weeks.id),
+    /** Null for week-wide messages such as the digests. */
+    creatorId: integer("creator_id").references(() => creators.id),
+    sentAt: timestamp("sent_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("notifications_dedupe_key_unique").on(table.dedupeKey)],
+);
+
+/**
  * Audit log of each Drive-sync run (built in a later stage) so failures and
  * timing are visible without digging through logs.
  */
